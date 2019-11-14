@@ -1465,10 +1465,11 @@ begin
             p(o).dest_hbits <= '1';
           end if;
         else
-          if opcode(7 downto 6) = "00" and opcode(5 downto 3) = "001" then -- illegal, word/long only
-            p(o).trap_illegal <= '1'; p(o).trap_make <= '1';
-          end if;
-
+          -- addx.b / subx.b -(An),-(An) are legal see 
+          -- MC68020_32-Bit_Microprocessor_Users_Manual_1984.pdf
+          --if opcode(7 downto 6) = "00" and opcode(5 downto 3) = "001" then -- illegal, word/long only
+          --  p(o).trap_illegal <= '1'; p(o).trap_make <= '1';
+          --end if;
           if opcode(8) = '1' and opcode(5 downto 4) = "00" then --addx, subx
             build_bcd <= '1';
           else --sub, add
