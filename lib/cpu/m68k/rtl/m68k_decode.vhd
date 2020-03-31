@@ -1887,6 +1887,7 @@ begin
       when st_AnXn2 =>
         p(o).setstate <= "11";
         p(o).setdisp <= '1'; --brief
+        p(o).set.hold_dwr <= '1';
         p(o).next_micro_state <= nop;
 
         -------------------------------------------------------------------------------------
@@ -1990,6 +1991,9 @@ begin
             p(o).setstate <= "01";
           if opcode(5 downto 3) = "100" then
             p(o).set.mem_addsub <= '1';
+            if cpu(1)='1' then
+              p(o).set.Regwrena <= '1';
+            end if;
           end if;
           p(o).next_micro_state <= movem2;
         end if;
