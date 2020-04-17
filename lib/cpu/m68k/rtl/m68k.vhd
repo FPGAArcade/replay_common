@@ -246,6 +246,8 @@ architecture logic of M68K_Core is
   signal set_exec               : r_Opc;
   signal setnextpass            : bit1;
   signal setstate               : word(1 downto 0);
+  signal setaddrvalue           : bit1;
+  signal addrvalue              : bit1;
   signal getbrief               : bit1;
   signal setstackaddr           : bit1;
   signal set_Suppress_Base      : bit1;
@@ -461,7 +463,14 @@ begin
     elsif memmaskmux(3) = '0' then
       data_write <= data_write_mux(31 downto 16);
     else
-      data_write <= data_write_mux(15 downto 0);
+-- a single byte shows up on both bus halfs
+     if memmaskmux(5 downto 4) = "10" then
+       data_write <= data_write_mux(7 downto 0) & data_write_mux(7 downto 0);
+     elsif memmaskmux(5 downto 4) = "01" then
+       data_write <= data_write_mux(15 downto 8) & data_write_mux(15 downto 8);
+     else
+       data_write <= data_write_mux(15 downto 0);
+     end if;
     end if;
 
     if exec.mem_byte = '1' then --movep
@@ -719,7 +728,7 @@ begin
 
         if state = "11" then
           exec_write_back <= '0';
-        elsif setstate = "10" and write_back = '1' and next_micro_state = idle then
+        elsif setstate = "10" and setaddrvalue='0' and write_back='1' then
           exec_write_back <= '1';
         end if;
 
@@ -1065,7 +1074,7 @@ begin
   -----------------------------------------------------------------------------
   IPL_nr <= not i_ipl_l;
 
-  process (setstate, state, exec_write_back, set_direct_data, next_micro_state, stop, make_trace, make_berr, IPL_nr, FlagsSR, set_rot_cnt, opcode, writePCbig, set_exec, exec,
+  process (setstate,  addrvalue, state, exec_write_back, set_direct_data, next_micro_state, stop, make_trace, make_berr, IPL_nr, FlagsSR, set_rot_cnt, opcode, writePCbig, set_exec, exec,
          PC_dataa, PC_datab, setnextpass, last_data_read, TG68_PC_brw, TG68_PC_word, Z_error, trap_trap, interrupt, tmp_TG68_PC, TG68_PC)
   begin
     PC_dataa <= TG68_PC;
@@ -1120,7 +1129,7 @@ begin
     end if;
     setexecOPC <= '0';
     -- bit of a bodge here with cmp2/chk2. We trick it into executing the opcode twice.
-    if setstate = "00" and (next_micro_state = idle or next_micro_state = upperbound2) and set_direct_data = '0' and (exec_write_back = '0' or state = "10") then
+    if setstate = "00" and (next_micro_state = idle or next_micro_state = upperbound2) and set_direct_data = '0' and (exec_write_back = '0' or (state = "10" and addrvalue = '0')) then
       setexecOPC <= '1';
     end if;
 
@@ -1144,6 +1153,7 @@ begin
         exe_opcode <= (others => '0');
 
         state <= "01";
+        addrvalue <= '0';
         trap_interrupt <= '0';
         last_opc_read <= X"4EF9"; --jmp nn.l
         TG68_PC_word <= '0';
@@ -1237,18 +1247,21 @@ begin
             fc(1 downto 0) <= "11";
           end if;
 
-          if (state = "10" and write_back = '1' and setstate /= "10") or set_rot_cnt /= "000001" or (stop = '1' and interrupt = '0') or set_exec.opcCHK = '1' or set_exec.opcCHK2 = '1' then
+          if (state = "10" and addrvalue='0' and write_back = '1' and setstate /= "10") or set_rot_cnt /= "000001" or (stop = '1' and interrupt = '0') or set_exec.opcCHK = '1' or set_exec.opcCHK2 = '1' then
             state <= "01";
             memmask <= "111111";
+            addrvalue <= '0';
           elsif execOPC = '1' and exec_write_back = '1' then
             state <= "11";
             fc(1 downto 0) <= "01";
             memmask <= wbmemmask;
+            addrvalue <= '0';
             if datatype = "00" then
               byte <= '1';
             end if;
           else
             state <= setstate;
+            addrvalue <= setaddrvalue;
             if setstate = "01" then
               memmask <= "111111";
               wbmemmask <= "111111";
@@ -1523,6 +1536,7 @@ begin
     nextpass        => nextpass,
     micro_state     => micro_state,
     state           => state,
+    addrvalue       => addrvalue,
     decodeOPC       => decodeOPC,
     setexecOPC      => setexecOPC,
     Flags           => Flags,
@@ -1563,6 +1577,7 @@ begin
     o_set_exec               => set_exec,
     o_setnextpass            => setnextpass,
     o_setstate               => setstate,
+    o_setaddrvalue           => setaddrvalue,
     o_getbrief               => getbrief,
     o_setstackaddr           => setstackaddr,
     o_set_Suppress_Base      => set_Suppress_Base,
