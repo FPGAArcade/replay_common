@@ -107,6 +107,7 @@ entity M68K_Decode is
     o_set_Suppress_Base      : out bit1;
     o_set_PCbase             : out bit1;
     o_set_direct_data        : out bit1;
+    o_datatype               : out word(1 downto 0);
     o_set_rot_cnt            : out word(5 downto 0);
     o_set_rot_bits           : out word(1 downto 0);
     o_set_stop               : out bit1;
