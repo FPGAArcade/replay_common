@@ -48,6 +48,7 @@ library ieee;
 
 entity M68K_ALU is
   port (
+    cpu               : in  word( 1 downto 0) := "00"; -- 00->68000 01->68010 11->68020(only some parts - yet)
     clk               : in  bit1;
     Reset             : in  bit1;
     clkena_lw         : in  bit1 := '1';
@@ -118,27 +119,21 @@ architecture RTL of M68K_ALU IS
 
   signal CCRin              : word( 7 downto 0);
 
-  signal niba_l             : word(5 downto 0);
-  signal niba_h             : word(5 downto 0);
-  signal niba_lc            : bit1;
-  signal niba_lca           : bit1;
-  signal niba_lpt           : bit1;
-  signal niba_hc            : bit1;
-  signal bcda_lc            : bit1;
-  signal bcda_hc            : bit1;
-  signal nibs_l             : word(5 downto 0);
-  signal nibs_h             : word(5 downto 0);
-  signal nibs_lc            : bit1;
-  signal nibs_lca           : word(4 downto 0);
-  signal nibs_hc            : bit1;
-
+  --BCD
+  signal bcd_pur				: std_logic_vector(9 downto 0);
+  signal bcd_kor				: std_logic_vector(8 downto 0);
+  signal halve_carry		: std_logic;
+  signal Vflag_a            : bit1;
+  signal bcd_a_carry        : bit1;
   signal bcd_a              : word(8 downto 0);
-  signal bcd_s              : word(8 downto 0);
   signal pack_out           : word(15 downto 0);
   signal pack_a             : word(15 downto 0);
   signal result_mulu        : word(63 downto 0);
+--  signal result_mulu        : word(127 downto 0);
   signal result_div         : word(63 downto 0);
+  signal result_div_pre	    : word(31 downto 0);
   signal set_mV_Flag        : bit1;
+  signal V_Flag             : bit1;
 
   signal rot_rot     : bit1;
   signal rot_lsb     : bit1;
@@ -212,7 +207,7 @@ begin
   -- set OP1in
   -----------------------------------------------------------------------------
   process (OP2out, reg_QB, opcode, OP1out, OP1in, exe_datatype, addsub_q, execOPC, exec,
-       pack_out, bcd_a, bcd_s, mulu_reg, result_div, exe_condition, bf_offset, bf_width,
+       pack_out, bcd_a, mulu_reg, result_div, exe_condition, bf_offset, bf_width,
        Flags, FlagsSR, bits_out, exec_tas, rot_out, exe_opcode, result, bf_fffo, bf_firstbit, bf_datareg)
   begin
     ALUout <= OP1in;
@@ -225,10 +220,8 @@ begin
     end if;
 
     OP1in <= addsub_q;
-    if exec.opcABCD= '1' then
+    if exec.opcABCD = '1' or exec.opcSBCD = '1' then
       OP1in(7 downto 0) <= bcd_a(7 downto 0);
-    elsif exec.opcSBCD= '1' then
-      OP1in(7 downto 0) <= bcd_s(7 downto 0);
     elsif exec.opcMULU= '1' then
       if exec.write_lowlong= '1' then
       OP1in <= mulu_reg(31 downto 0);
@@ -349,7 +342,7 @@ begin
   ------------------------------------------------------------------------------
   --ALU
   ------------------------------------------------------------------------------
-  process (exe_opcode, OP1out, OP2out, pack_a,  niba_l, niba_lpt, niba_hc, niba_h, niba_lc, niba_lca, nibs_hc, nibs_h, nibs_l, nibs_lc, nibs_lca, Flags)
+  process (OP1out, OP2out, cpu, exec, add_result, bcd_pur, bcd_a, bcd_kor, halve_carry, c_in)
   begin
     if exe_opcode(7 downto 6) = "01" then
       -- PACK
@@ -360,26 +353,36 @@ begin
       pack_a <= "0000" & OP2out(7 downto 4) & "0000" & OP2out(3 downto 0);
       pack_out <= std_logic_vector(unsigned(OP1out(15 downto 0)) + unsigned(pack_a));
     end if;
-
-    --BCD_ARITH-------------------------------------------------------------------
-    --ABCD
-    bcd_a    <= niba_hc & (niba_h(4 downto 1) + ('0', niba_hc, niba_hc, niba_lca)) & (niba_l(4 downto 1) + ('0', niba_lc, niba_lc, '0'));
-    niba_l   <= ('0' & OP1out(3 downto 0) & '1') + ('0' & OP2out(3 downto 0) & Flags(4));
-    niba_lpt <= (niba_l(4) and niba_l(3)) OR (niba_l(4) and niba_l(2));
-    niba_lc  <= niba_l(5) OR niba_lpt;
-    niba_lca <= niba_l(5) and niba_lpt;
-
-    niba_h   <= ('0' & OP1out(7 downto 4) & '1') + ('0' & OP2out(7 downto 4) & niba_lc);
-    niba_hc  <= niba_h(5) OR (niba_h(4) and niba_h(3)) OR (niba_h(4) and niba_h(2));
-
-    --SBCD
-    bcd_s    <= nibs_hc & (nibs_h(4 downto 1) - ('0', nibs_hc, nibs_hc, nibs_lca(4))) & nibs_lca(3 downto 0);
-    nibs_l   <= ('0' & OP1out(3 downto 0) & '0') - ('0' & OP2out(3 downto 0) & Flags(4));
-    nibs_lc  <= nibs_l(5);
-    nibs_lca <= '0' & nibs_l(4 downto 1) - ('0', '0', nibs_lc, nibs_lc, '0');
-
-    nibs_h   <= ('0' & OP1out(7 downto 4) & '0') - ('0' & OP2out(7 downto 4) & nibs_lc);
-    nibs_hc  <= nibs_h(5);
+--BCD_ARITH-------------------------------------------------------------------
+--04.04.2017 by Tobiflex - BCD handling with all undefined behavior!
+    bcd_pur <= c_in(1)&add_result(8 downto 0);
+    bcd_kor <= "000000000";
+    halve_carry <= OP1out(4) XOR OP2out(4) XOR bcd_pur(5);
+    if halve_carry = '1' then
+      bcd_kor(3 downto 0) <= "0110"; --  -6
+    end if;
+    if bcd_pur(9) = '1' then
+      bcd_kor(7 downto 4) <= "0110"; --  -60
+    end if;
+    if exec.opcABCD = '1' then
+      Vflag_a <= not bcd_pur(8) and bcd_a(7);
+--			bcd_pur <= ('0'&OP1out(7 downto 0)&'1') + ('0'&OP2out(7 downto 0)&Flags(4));
+      bcd_a <= bcd_pur(9 downto 1) + bcd_kor;
+      if (bcd_pur(4) AND (bcd_pur(3) OR bcd_pur(2)))='1' then
+        bcd_kor(3 downto 0) <= "0110"; --  +6
+      end if;
+      if (bcd_pur(8) and (bcd_pur(7) or bcd_pur(6) or (bcd_pur(5) and bcd_pur(4) and (bcd_pur(3) or bcd_pur(2)))))='1' then
+        bcd_kor(7 downto 4) <= "0110"; --  +60
+    end if;
+    else --opcSBCD
+      Vflag_a <= bcd_pur(8) and not bcd_a(7);
+      -- bcd_pur <= ('0'&OP1out(7 downto 0)&'0') - ('0'&OP2out(7 downto 0)&Flags(4));
+      bcd_a <= bcd_pur(9 downto 1) - bcd_kor;
+    END IF;
+    if cpu(1) = '1' then
+      Vflag_a <= '0'; --68020
+    end if;
+    bcd_a_carry <= bcd_pur(9) or bcd_a(8);
   end process;
 
   -----------------------------------------------------------------------------
@@ -706,7 +709,7 @@ begin
   --CCR op
   ------------------------------------------------------------------------------
   process (clk, Reset, exe_opcode, exe_datatype, Flags, last_data_read, OP2out, flag_z, OP1in, c_out, addsub_ofl,
-    bcd_s, bcd_a, exec)
+    bcd_a, bcd_a_carry, Vflag_a, exec)
 
   begin
     if exec.andiSR = '1' then
@@ -728,24 +731,21 @@ begin
     elsif OP1in(7 downto 0) = "00000000" then
       flag_z(0) <= '1';
       if OP1in(15 downto 8) = "00000000" then
-      flag_z(1) <= '1';
-      if OP1in(31 downto 16) = "0000000000000000" then
-        flag_z(2) <= '1';
-      end if;
+        flag_z(1) <= '1';
+        if OP1in(31 downto 16) = "0000000000000000" then
+          flag_z(2) <= '1';
+        end if;
       end if;
     end if;
 
     -- --Flags NZVC
     if exe_datatype = "00" then --Byte
       set_flags <= OP1in(7) & flag_z(0) & addsub_ofl(0) & c_out(0);
-      if exec.opcABCD = '1' then
-      set_flags(0) <= bcd_a(8);
-      set_flags(1) <= '0';
-      elsif exec.opcSBCD = '1' then
-      set_flags(0) <= bcd_s(8);
-      set_flags(1) <= '0';
+      if exec.opcABCD = '1' or exec.opcSBCD = '1' then
+        set_flags(0) <= bcd_a_carry;
+        set_flags(1) <= Vflag_a;
       end if;
-    elsif exe_datatype = "10" OR exec.opcCPMAW = '1' then --Long
+    elsif exe_datatype = "10" or exec.opcCPMAW = '1' then --Long
       set_flags <= OP1in(31) & flag_z(2) & addsub_ofl(2) & c_out(2);
     else --Word
       set_flags <= OP1in(15) & flag_z(1) & addsub_ofl(1) & c_out(1);

@@ -108,6 +108,7 @@ entity M68K_Decode is
     o_set_PCbase             : out bit1;
     o_set_direct_data        : out bit1;
     o_datatype               : out word(1 downto 0);
+    o_set_datatype           : out word(1 downto 0);
     o_set_rot_cnt            : out word(5 downto 0);
     o_set_rot_bits           : out word(1 downto 0);
     o_set_stop               : out bit1;
@@ -193,16 +194,16 @@ begin
       p(o).setstate <= "01";
     end if;
 
-    if interrupt='1' and trap_berr='1' THEN
+    if interrupt='1' and trap_berr='1' then
       p(o).next_micro_state <= trap0;
-      if preSVmode='0' THEN
+      if preSVmode='0' then
         p(o).set.changeMode <= '1';
       end if;
       p(o).setstate <= "01";
     end if;
 
     if micro_state = int1 or (interrupt = '1' and trap_trace = '1') then
-      if (cpu(0)='1') and trap_trace='1' then
+      if (cpu(0) = '1') and trap_trace='1' then
         p(o).next_micro_state <= trap00;
       else
         p(o).next_micro_state <= trap0;
@@ -723,7 +724,7 @@ begin
           if opcode(6) = '1' then --lea
             if opcode(7) = '1' then
               p(o).source_lowbits <= '1';
-              -- if opcode(5 downto 3)="000" and opcode(10)='0' then --ext
+              -- if opcode(5 downto 3) = "000" and opcode(10) = '0' then --ext
               if opcode(5 downto 4) = "00" then --extb.l
                 p(o).set_exec.opcEXT <= '1';
                 p(o).set_exec.opcMOVE <= '1';
@@ -753,7 +754,7 @@ begin
               p(o).trap_illegal <= '1'; p(o).trap_make <= '1';
             end if;
           else --chk
-            if opcode(7)='1' and opcode(5 downto 0) /= "111111" then
+            if opcode(7) = '1' and opcode(5 downto 0) /= "111111" then
               p(o).datatype <= "01"; --Word
               p(o).set.trap_chk <= '1';
               if (c_out(1) = '0' or OP1out(15) = '1' or OP2out(15) = '1') and exec.opcCHK = '1' then
@@ -902,7 +903,7 @@ begin
                     p(o).datatype <= "01"; --WorD
                   end if;
                 else --movem
-                  -- if opcode(11 downto 7)="10001" or opcode(11 downto 7)="11001" then --MOVEM
+                  -- if opcode(11 downto 7) = "10001" or opcode(11 downto 7) = "11001" then --MOVEM
                   p(o).ea_only <= '1';
                   p(o).set.no_Flags <= '1';
                   if opcode(6) = '0' then
@@ -947,7 +948,7 @@ begin
                 end if;
               else
                 if opcode(10) = '1' then --MUL.L, DIV.L 68020
-                  if cpu(1)='1' then
+                  if cpu(1) = '1' then
                     if decodeOPC = '1' then
                       p(o).next_micro_state <= nop;
                       p(o).set.get_2ndOPC <= '1';
@@ -1020,6 +1021,7 @@ begin
                       p(o).write_back <= '1';
                       p(o).set_exec.opcADD <= '1';
                       p(o).set_exec.opcSBCD <= '1';
+                      p(o).set.addsub <= '1';
                       p(o).source_lowbits <= '1';
                       if opcode(5 downto 4) = "00" then
                         p(o).set_exec.Regwrena <= '1';
@@ -1065,7 +1067,7 @@ begin
               -- setstate <="11";
               -- next_micro_state <= nop;
               -- end if;
-              -- if p(o).set.get_ea_now)='1' then
+              -- if p(o).set.get_ea_now) = '1' then
               -- setstate <="01";
               -- end if;
               --
@@ -1271,7 +1273,7 @@ begin
         --
       -- 0101 ----------------------------------------------------------------------------
       when "0101" => --subq, addq, trapxcc
-        if cpu(1)='1' and (opcode(7 downto 1) = "1111101" or opcode(7 downto 0) = "11111100") then -- TRAPcc
+        if cpu(1) = '1' and (opcode(7 downto 1) = "1111101" or opcode(7 downto 0) = "11111100") then -- TRAPcc
           if decodeOPC = '1' then
             p(o).next_micro_state <= nop;
             if (opcode(2) = '1') then
@@ -1362,7 +1364,7 @@ begin
         end if;
         -- 0111 ----------------------------------------------------------------------------
       when "0111" => --moveq
-        -- if opcode(8)='0' then -- Cloanto's Amiga Forver ROMs have mangled movq instructions with a 1 here...
+        -- if opcode(8) = '0' then -- Cloanto's Amiga Forver ROMs have mangled movq instructions with a 1 here...
         if trap_interrupt = '0' and trap_trace = '0' then
           p(o).datatype <= "10"; --Long
           p(o).set_exec.Regwrena <= '1';
@@ -1398,6 +1400,7 @@ begin
             build_bcd <= '1';
             p(o).set_exec.opcADD <= '1';
             p(o).set_exec.opcSBCD <= '1';
+            p(o).set.addsub <= '1';
           elsif cpu(1) = '1' and (opcode(7 downto 6) = "01" or opcode(7 downto 6) = "10") then --pack, unpack
             p(o).datatype <= "01"; --Word
             p(o).set_exec.opcPACK <= '1';
@@ -1638,8 +1641,8 @@ begin
               if setexecOPC = '1' then
                 if opcode(10 downto 8) = "111" then --BFINS
                   p(o).source_2ndHbits <= '1';
-                elsif opcode(10 downto 8)="001" or opcode(10 downto 8)="011" or
-                                  opcode(10 downto 8)="101" THEN
+                elsif opcode(10 downto 8) = "001" or opcode(10 downto 8) = "011" or
+                                  opcode(10 downto 8) = "101" then
                   --BFEXTU, BFEXTS, BFFFO
                   p(o).source_lowbits <= '1';
                   p(o).dest_2ndHbits <= '1';
@@ -1878,7 +1881,7 @@ begin
         else
           if brief(7) = '1' then --suppress Base
             p(o).set_suppress_base <= '1';
-            -- elsif exec(dispouter)='1' then
+            -- elsif exec(dispouter) = '1' then
             -- set.dispouter) <= '1';
           end if;
           if brief(5) = '0' then --NULL Base Displacement
@@ -1998,7 +2001,7 @@ begin
             p(o).setstate <= "01";
           if opcode(5 downto 3) = "100" then
             p(o).set.mem_addsub <= '1';
-            if cpu(1)='1' then
+            if cpu(1) = '1' then
               p(o).set.Regwrena <= '1';
             end if;
           end if;
@@ -2026,11 +2029,11 @@ begin
         end if;
 
       when op_AxAy => -- op -(Ax),-(Ay)
-        p(o).set_direct_data <= '1';
-        p(o).set.presub <= '1';
         if opcode(11 downto 9) = "111" then
           p(o).set.use_SP <= '1';
         end if;
+        p(o).set_direct_data <= '1';
+        p(o).set.presub <= '1';
         p(o).dest_hbits <= '1';
         p(o).dest_areg <= '1';
         p(o).setstate <= "10";
@@ -2187,7 +2190,7 @@ begin
          p(o).next_micro_state <= rte4;
 
       when rte4 =>            -- RTE -- check for stack frame format #2
-         if last_data_in(15 downto 12)="0010" then -- read another 32 bits in this case
+         if last_data_in(15 downto 12) = "0010" then -- read another 32 bits in this case
            p(o).setstate <= "10"; -- read
            p(o).datatype <= "10"; -- long word
            p(o).set.postadd <= '1';
