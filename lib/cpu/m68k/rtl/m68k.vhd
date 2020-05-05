@@ -322,6 +322,7 @@ begin
     clk                  => i_clk,            --: in std_logic;
     Reset                => Reset,            --: in std_logic;
     clkena_lw            => clkena_lw,        --: in std_logic:='1';
+    cpu                  => i_cpu_type,       --: in std_logic_vector(1 downto 0):="00";  -- 00->68000  01->68010  11->68020(only some parts - yet)
     execOPC              => execOPC,          --: in bit;
     exe_condition        => exe_condition,    --: in std_logic;
     exec_tas             => exec_tas,         --: in std_logic;
