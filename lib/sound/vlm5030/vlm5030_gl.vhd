@@ -15,10 +15,12 @@
 --
 -------------------------------------------------------------------------------
 --
--- Sanyo VLM5030 speech snythesizer
+-- Sanyo VLM5030 speech synthesizer
 --
 -- Gate-level recreation extracted from the die image at
 --   https://siliconpr0n.org/archive/doku.php?id=ogoun:vlm5030
+--
+--   https://www.fpgaarcade.com/tag/vlm5030/
 --
 -------------------------------------------------------------------------------
 --
@@ -154,13 +156,14 @@ entity vlm5030_gl is
 
 end;
 
+use work.clock_functions_pack.all;
 use work.vlm5030_pack.all;
 
 architecture gl of vlm5030_gl is
 
-  signal osc   : t_clk;
-  signal clk2  : t_clk := z_clk;
-  signal nclk2 : t_clk;
+  signal osc   : r_clk;
+  signal clk2  : r_clk := z_clk;
+  signal nclk2 : r_clk;
 
   signal rst   : std_logic;
 
@@ -177,14 +180,14 @@ architecture gl of vlm5030_gl is
   signal c2d0, c2d1, c2d2,
          c2d3, c2d4, c2d5,
          c2d6, c2d7, c2d8,
-         c2d9, c2d10       : t_clk;
-  signal c2d5fin           : t_clk;
-  signal c2d7fin, nc2d7fin : t_clk;
-  signal c2d9fin, nc2d9fin : t_clk;
-  signal clk2gd5           : t_clk;
+         c2d9, c2d10       : r_clk;
+  signal c2d5fin           : r_clk;
+  signal c2d7fin, nc2d7fin : r_clk;
+  signal c2d9fin, nc2d9fin : r_clk;
+  signal clk2gd5           : r_clk;
   signal nc2d1, nc2d6,
-         nc2d8, nc2d10     : t_clk;
-  signal c2d3gated         : t_clk;
+         nc2d8, nc2d10     : r_clk;
+  signal c2d3gated         : r_clk;
 
 
   signal fsromevalout : std_logic;
@@ -192,7 +195,7 @@ architecture gl of vlm5030_gl is
   signal fsromnorhigh,
          fsromnorlow  : std_logic;
   --
-  signal clk2ctrl    : t_clk;
+  signal clk2ctrl    : r_clk;
   signal ncen1, cen3 : std_logic;
   signal eaoen       : std_logic;
   signal xromdo7nq   : std_logic := '0';
@@ -210,7 +213,7 @@ architecture gl of vlm5030_gl is
 
 
   signal startrise  : std_logic;
-  signal clkcntdn   : t_clk;
+  signal clkcntdn   : r_clk;
   signal ncntdnload : std_logic;
   signal ncntdn     : std_logic;
 
@@ -228,11 +231,11 @@ architecture gl of vlm5030_gl is
   signal asshift2   : std_logic;
   signal updtpitch  : std_logic;
   signal enrf2ID    : std_logic;
-  signal clkksa     : t_clk;
+  signal clkksa     : r_clk;
   signal ensum2ID   : std_logic;
 
 
-  signal clk2ena, clk2enb : t_clk;
+  signal clk2ena, clk2enb : r_clk;
 
   signal rstdel : std_logic;
 
@@ -259,7 +262,7 @@ architecture gl of vlm5030_gl is
 
 
   signal pitchoverflow : std_logic;
-  signal enpitchlat    : t_clk;
+  signal enpitchlat    : r_clk;
 
 
   signal enmem02ID : std_logic;
@@ -272,11 +275,11 @@ architecture gl of vlm5030_gl is
 
   signal ieregdrv,
          ieregdrv4IE  : std_logic_vector(nIE'range);
-  signal ieregload    : t_clk;
+  signal ieregload    : r_clk;
 
   signal enieregfa2IE : std_logic;
 
-  signal c2d10xr9  : t_clk;
+  signal c2d10xr9  : r_clk;
   signal enIE2A    : std_logic;
   signal ieaddrreg : std_logic_vector(nIE'range);
 
@@ -344,7 +347,7 @@ begin
   --
   dq_block : block
     signal rstq   : std_logic := '0';
-    signal rstclk : t_clk;
+    signal rstclk : r_clk;
     signal ldq    : std_logic_vector(dq'range);
     signal maskdq53m, maskdq53s : std_logic := '0';
 
@@ -477,7 +480,7 @@ begin
     signal feedback : std_logic;
 
     -- edge detection for val that will change to preval on the rising refclk edge
-    function rising_edge_detect(refclk : t_clk; val, preval : std_logic) return t_clk is
+    function rising_edge_detect(refclk : r_clk; val, preval : std_logic) return r_clk is
     begin
       return (base => refclk.base,
               val  => val,
@@ -954,7 +957,7 @@ begin
     signal n001x, n002x, n003x, n004x, n005x, n006x,
            n007x, n008x, n009x, n014x, n015x,
            n016x, n017x : std_logic;
-    signal n012x : t_clk;
+    signal n012x : r_clk;
 
     signal busy1q,
            busy2q   : std_logic;

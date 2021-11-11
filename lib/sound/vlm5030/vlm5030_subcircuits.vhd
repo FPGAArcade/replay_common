@@ -54,22 +54,21 @@ end;
 
 
 -------------------------------------------------------------------------------
--- SR-latch, synchronous to common clock, t_clk version
+-- SR-latch, synchronous to common clock, r_clk version
 -------------------------------------------------------------------------------
 
 library ieee;
 use ieee.std_logic_1164.all;
 
-use work.vlm5030_pack.t_clk;
-use work.vlm5030_pack.rising_edge;
+use work.clock_functions_pack.all;
 
 entity vlm5030_srlatchclk is
 
   port (
-    i_clk : in  t_clk;
-    i_res : in  t_clk;
-    i_set : in  t_clk;
-    o_q   : out t_clk
+    i_clk : in  r_clk;
+    i_res : in  r_clk;
+    i_set : in  r_clk;
+    o_q   : out r_clk
   );
 
 end;
@@ -108,7 +107,7 @@ end;
 
 library ieee;
 use ieee.std_logic_1164.all;
-use work.vlm5030_pack.all;
+use work.clock_functions_pack.all;
 
 entity vlm5030_delay is
 
@@ -116,7 +115,7 @@ entity vlm5030_delay is
     g_numclks : integer := 3
   );
   port (
-    i_clk : in  t_clk;
+    i_clk : in  r_clk;
     i_in  : in  std_logic;
     o_out : out std_logic
   );
@@ -159,7 +158,7 @@ end;
 
 library ieee;
 use ieee.std_logic_1164.all;
-use work.vlm5030_pack.all;
+use work.clock_functions_pack.all;
 
 entity vlm5030_delay_inv is
 
@@ -167,7 +166,7 @@ entity vlm5030_delay_inv is
     g_numclks : integer := 3
   );
   port (
-    i_clk : in  t_clk;
+    i_clk : in  r_clk;
     i_in  : in  std_logic;
     o_out : out std_logic
   );
