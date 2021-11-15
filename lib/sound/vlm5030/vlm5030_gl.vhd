@@ -2235,8 +2235,8 @@ begin
       signal dacval, dacpwm : signed(o_dao'high+1 downto 0);
     begin
 
-      ndac <= not ieaddrreg(9 downto 5) when tstenIE2DAC = '0' else
-              not nIE(9 downto 5);
+      ndac <= ieaddrreg(9) & not ieaddrreg(8 downto 5) when tstenIE2DAC = '0' else
+              nIE(9) & not nIE(8 downto 5);
 
       -- The R-ladder between GND and VREF has 34 segments.
       -- * the lowest setting (-16 & pwmsel=1) generates 33 over 1
@@ -2287,7 +2287,8 @@ begin
   end block;
 
 
-  o_audio <= ieaddrreg(9 downto 0);
+  o_audio <= ieaddrreg(9 downto 0) when tstenIE2DAC = '0' else
+             not nIE(9 downto 0);
 
   o_bsy <= not nbsy;
 
